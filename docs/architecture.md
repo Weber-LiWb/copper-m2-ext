@@ -116,3 +116,34 @@ chats keep separate histories so the tools-off model can't copy a tools answer.
 chat is labeled as possibly made up. The tools only read, so a bad tool call
 can't change anything. If the stock list can't be read, the tool says so
 instead of guessing. Every question is logged to `ai_calls` for cost.
+
+## Module 2 extension: delivery estimates
+
+**Summary:** Ask Copper gets a fifth tool, `estimate_delivery`, so shoppers can
+ask "when would it arrive?" and get a date window worked out in code, not
+guessed by the model.
+
+| Piece | Where | What it does |
+|---|---|---|
+| Tool | `lib/copper/assistant/tools.ts` (`estimate_delivery`) | Takes a product, color and quantity (1 to 5); reads today's stock from the Supabase `inventory` table; returns the ship date and an earliest/latest arrival date |
+| Label | `lib/copper/assistant/progress.ts` | "Estimating delivery", shown in the panel's tool menu and tool cards |
+| Panel | `components/copper/ask-copper-steps.tsx` | The tool card shows the quantity sent, the stock pill, the restock date (if waiting), the ship date and the arrival window |
+| Instructions | `lib/copper/assistant/instructions.ts` | Copper must use the tool for delivery dates and never work dates out itself |
+| Tests | `tests/estimate-delivery.test.ts`, `tests/estimate-delivery-card.test.tsx` | In stock, back-ordered, partial stock, weekends, wrong color, contract, stock unreadable, stale restock date |
+
+**Shipping rule (an assumption, not a Product Bible fact):** the Bible gives
+stock and the next restock date but no shipping times, so the extension
+assumes an order ships 1 business day after it can be filled and the carrier
+takes 3 to 5 business days. Weekends are skipped; holidays are not. "Today" is
+Arizona time. The rule lives in one constant, `SHIPPING_RULE`.
+
+**Decisions and trade-offs:** If there aren't enough units for the whole
+order, the whole order waits for the next shipment (no split shipments), which
+keeps the answer simple. The tool reads stock itself rather than depending on
+the model to call `check_availability` first.
+
+**Risks and open questions:** If a restock date has already passed and stock
+is still short, the tool says the date is unknown instead of inventing one.
+If stock can't be read, it says delivery can't be estimated. Adding a fifth
+tool means Module 2's AC-M2.8 ("exactly four tools") fails in this repo on
+purpose; the graded `copper-m2` repo keeps four.

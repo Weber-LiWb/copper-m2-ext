@@ -23,6 +23,7 @@ import {
 import type {
   Availability,
   CostBreakdown,
+  DeliveryEstimate,
   Prices,
   ProductList,
 } from "@/lib/copper/assistant/tools";
@@ -150,6 +151,9 @@ function SentList({ step }: { step: ToolStep }) {
     <dl className="space-y-0.5">
       <Row label="Product" value={productName(input.product)} />
       <Row label="Color" value={String(input.color ?? "All colors")} />
+      {step.name === "estimate_delivery" && (
+        <Row label="Quantity" value={String(input.quantity ?? 1)} />
+      )}
     </dl>
   );
 }
@@ -242,6 +246,54 @@ function ResultView({ step }: { step: ToolStep }) {
           ))}
       </div>
     );
+  }
+  if (step.name === "estimate_delivery") {
+    const delivery = step.output as DeliveryEstimate;
+    if (delivery.status === "ok") {
+      const pill = STOCK_PILLS[delivery.stock];
+      return (
+        <div className="space-y-1 text-xs">
+          <div className="flex items-center justify-between gap-3">
+            <span>
+              {delivery.quantity} × {delivery.product}, {delivery.color}
+            </span>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[11px]",
+                pill.className,
+              )}
+            >
+              {pill.text}
+            </span>
+          </div>
+          {delivery.restockDate && (
+            <div className="flex justify-between gap-3">
+              <span>Waits for restock</span>
+              <span>{longDate(delivery.restockDate)}</span>
+            </div>
+          )}
+          <div className="flex justify-between gap-3">
+            <span>Ships</span>
+            <span>{longDate(delivery.shipsOn)}</span>
+          </div>
+          <div className="flex justify-between gap-3 font-medium">
+            <span>Arrives</span>
+            <span>
+              {longDate(delivery.arrivesEarliest)} –{" "}
+              {longDate(delivery.arrivesLatest)}
+            </span>
+          </div>
+        </div>
+      );
+    }
+    if (delivery.status === "not_a_color")
+      return (
+        <p className="text-xs">
+          {delivery.product} doesn&apos;t come in {delivery.color}. Its colors
+          are {delivery.colors.join(", ")}.
+        </p>
+      );
+    return <p className="text-xs">{delivery.message}</p>;
   }
   const result = step.output as Availability;
   if (result.status === "not_a_color")
